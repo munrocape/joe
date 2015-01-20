@@ -25,14 +25,31 @@ Options:
 
 import os
 import sys
-
+import platform
 from docopt import docopt
-
+from shutil import copyfile
 
 __version__ = '0.0.5'
 
 
 _ROOT = os.path.abspath(os.path.dirname(__file__))
+PLATFORM = platform.system()
+
+
+def get_share_folder():
+    if PLATFORM == "Darwin":
+        path = '/Library/Application Support/joe'
+    elif PLATFORM == "Windows":
+        path = 'C:\ProgramData\joe'
+    elif PLATFORM == "Linux":
+        path = '/usr/share/joe'
+    else:
+        print 'This is not a supported OS.'
+    if not os.path.isdir(path):
+        os.mkdir(path)
+    return path
+
+
 def _get_data_dir(path):
     '''Returns the path to the directory matching the passed `path`.'''
     return os.path.dirname(os.path.join(_ROOT, 'data', path))
@@ -42,6 +59,10 @@ def _walk_gitignores():
     '''Recurse over the data directory and return all .gitignore file names'''
     l = []
     for root, subFolders, files in os.walk(DATA_DIR):
+        l += [f.replace('.gitignore', '') \
+                for f in files if f.endswith('.gitignore')]
+    
+    for root, subFolder, files in os.walk(get_share_folder()):
         l += [f.replace('.gitignore', '') \
                 for f in files if f.endswith('.gitignore')]
     return sorted(l)
@@ -99,6 +120,23 @@ def _fetch_gitignore(raw_name, directory=''):
         return output
     except IOError:
         return _fetch_gitignore(raw_name, 'Global')
+
+def add_custom_gitignore(new_gitignore):
+    '''Add a custom gitignore to the joe folder in the shared data folder.'''
+    try:
+        share_folder = get_share_folder()
+        copyfile(new_gitignore, share_folder + '/' + new_gitignore)
+    except OSError:
+        print 'Could not copy ' + new_gitignore + ' to ' + share_folder + '.\nCheck your permissions for both'
+
+
+def remove_custom_gitignore(gitignore_to_remove):
+    '''Remove a custom gitignore from the joe folder in the shared data folder.'''
+    try:
+        share_folder = get_share_folder()
+        os.remove(share_folder + '/' + new_gitignore)
+    except OSError:
+        print 'Could not remove ' + share_folder + '/' + new_gitignore + '.\nCheck your permissions for that file.'
 
 
 def main():
